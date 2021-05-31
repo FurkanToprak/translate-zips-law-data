@@ -27,14 +27,9 @@ class Language(Schema):
         }
 
 class RankedWord(Schema):
-    def __init__(self, rank):
+    def __init__(self, rank, translation_id):
         self.rank = rank
-
-    def setTranslation(self, translation_id):
         self.translation_id = translation_id
-
-    def getTranslation(self):
-        return self.translation_id
 
     def document(self):
         return {
@@ -52,6 +47,17 @@ class Translation(Schema):
     def document(self):
         return self.trans_map
 
+class KnowledgeBase(Schema):
+    def __init__(self, language, words):
+        self.language = language
+        self.words = words
+
+    def document(self):
+        return {
+            "language": self.language,
+            "words": self.words
+        }
+
 load_dotenv()
 
 MONGO_USERNAME = getenv('MONGO_USERNAME')
@@ -64,6 +70,8 @@ client = pymongo.MongoClient(client_connection)
 db = client.alpha
 
 language_collection = db.languages
+translation_collection = db.translations
+ranked_words_collection = db.ranked_words
 
 # Populate language collection
 for language in languages:
@@ -71,9 +79,8 @@ for language in languages:
         language_document = Language(language.alpha2, language.name)
         # language_collection.insert_one(language_document.document())
 
-# Populate translations collection
-translation_collection = db.translations
 
+# Populate translations collection
 directory_files = listdir('.')
 
 # word frequency files
@@ -88,11 +95,8 @@ for directory_file in directory_files:
         word_freq_lines = word_freq_file.readlines()
         word_freq_file.close()
         ranked_words = []
-        for word_freq_line in word_freq_lines:
-            line_cells = word_freq_line.split(',')
-            freq_word = line_cells[0]
-            freq_rank = line_cells[1]
-            ranked_words.append(RankedWord(freq_rank))
+        for word_freq_line in word_freq_lines[1:]:
+            ranked_words.append(word_freq_line.split(',')[0])
         # open translation file
         translation_file_name = f"transword-freq-{alpha2_code}-{language_name}.csv"
         translation_file = open(translation_file_name, "r")
@@ -102,6 +106,7 @@ for directory_file in directory_files:
         num_rows = len(translation_lines[1].split(',')) # num of ranks there are
         num_cols = len(translation_lines) - 1 # num of languages
         print(translation_file_name, 'cols:', num_cols, 'rows:', num_rows)
+        trans_objs = []
         for row in range(num_rows):
             rank = 1 + row
             translation_row = []
@@ -110,6 +115,9 @@ for directory_file in directory_files:
                 lang = translation_lines[0].split(',')[col - 1]
                 translation = translation_lines[col].split(',')[row]
                 trans_obj.put(lang, translation)
-            translation.put(alpha2_code, ranked_words[row].freq_word)
-            print(translation.document())
+            trans_obj.put(alpha2_code, ranked_words[row])
+            translation_id = translation_collection.insert_one(trans_obj.document()).inserted_id
+            ranked_word = RankedWord(rank, translation_id)
+            ranked_word_id = ranked_words_collection.insert_one(ranked_word.document()).inserted_id
+
         exit()
