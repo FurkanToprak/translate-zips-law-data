@@ -37,12 +37,11 @@ n = 300
 def is_lang_file(file_name):
     return file_name.split("-")[0] == 'word'
 
-
 dir_files = listdir(".")
 language_files = list(filter(is_lang_file, dir_files))
 languages = list(
     map(lambda language_file: language_file.split('-')[2], language_files))
-
+print(language_files)
 for language_file in language_files:
     # open and read file
     lang_file = open(language_file, 'r')
@@ -54,7 +53,7 @@ for language_file in language_files:
     this_language = language_file.split('-')[2]
     other_languages = list(filter(
         lambda language: language != this_language, languages))
-
+    
     # open output file
     trans_lang_file = open('trans' + language_file, 'w')
     trans_lang_file.write(','.join(other_languages));
